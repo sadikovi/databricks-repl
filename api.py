@@ -32,6 +32,7 @@ import urllib
 import urllib2
 
 X_DATABRICKS_ORG_ID = "X-Databricks-Org-Id"
+X_CSRF_Token = "X-CSRF-Token"
 USER_AGENT = "Databricks Unofficial API"
 
 # Performs url encoding of the dictionary of parameters.
@@ -160,3 +161,84 @@ class WorkspaceSession(object):
             )
             self.__config = json.loads(data)
         return self.__config
+
+    def list_clusters(self):
+        """
+        Returns list of clusters.
+        """
+        code, headers, data = send(
+            "%s/ajax-api/2.0/clusters/list" % self._session._uri,
+            session=self._session._session_id,
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": USER_AGENT,
+                X_DATABRICKS_ORG_ID: self._org_id,
+                X_CSRF_Token: self.config["csrfToken"]
+            }
+        )
+        obj = json.loads(data)
+        return [Cluster(cluster) for cluster in obj["clusters"]]
+
+class Cluster(object):
+    def __init__(self, cluster_json):
+        self._id = cluster_json["cluster_id"]
+        self._name = cluster_json["cluster_name"]
+        self._spark_version = cluster_json["spark_version"]
+        self._spark_context_id = cluster_json["spark_context_id"]
+        self._spark_conf = cluster_json["spark_conf"] # key-value pairs
+        self._spark_env_vars = cluster_json["spark_env_vars"] # key-value pairs
+        self._aws_attributes = cluster_json["aws_attributes"] # key-value pairs
+        self._driver_type_id = cluster_json["driver_node_type_id"]
+        self._worker_type_id = cluster_json["node_type_id"]
+        self._num_workers = cluster_json["num_workers"]
+        self._creator = cluster_json["creator_user_name"]
+        self._state = cluster_json["state"]
+
+    @property
+    def id(self):
+        """
+        Returns cluster id.
+        """
+        return self._id
+
+    @property
+    def name(self):
+        """
+        Returns cluster name.
+        """
+        return self._name
+
+    @property
+    def spark_version(self):
+        """
+        Returns Spark version (id) for the cluster.
+        """
+        return self._spark_version
+
+    @property
+    def spark_conf(self):
+        """
+        Returns read-only Spark configuration as dictionary.
+        """
+        return dict(self._spark_conf) # returns copy
+
+    @property
+    def spark_env_vars(self):
+        """
+        Returns read-only Spark ENV as dictionary.
+        """
+        return dict(self._spark_env_vars) # returns copy
+
+    @property
+    def aws_attributes(self):
+        """
+        Returns read-only AWS attributes as dictionary.
+        """
+        return dict(self._aws_attributes) # returns copy
+
+    @property
+    def state(self):
+        """
+        Returns state of the cluster, e.g. RUNNING, TERMINATED.
+        """
+        return self._state
